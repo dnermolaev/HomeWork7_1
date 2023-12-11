@@ -10,13 +10,14 @@ data class Note(
 }
 
 class NoteNotFoundException(message: String) : RuntimeException(message)
+class CommentNotFoundException(message: String) : RuntimeException(message)
 
 object NotesService {
     var notes = mutableListOf<Note>()
     var notesId: Int = 0
     var comments = mutableListOf<Comment>()
     var commentsId: Int = 0
-    var deletedComments= mutableListOf<Comment>()
+    var deletedComments = mutableListOf<Comment>()
 
     fun add(note: Note): Int {
         notes.add(note.copy(nid = ++notesId))
@@ -26,7 +27,7 @@ object NotesService {
     fun createComment(noteId: Int, comment: Comment): Int {
         for (note in notes) {
             if (note.nid == noteId) {
-                comments.add(comment.copy(cid = ++commentsId))
+                comments.add(comment.copy(cid = ++commentsId, parentNoteId = note.nid))
                 return comments.last().cid
             }
         }
@@ -37,6 +38,12 @@ object NotesService {
         for (note in notes) {
             if (note.nid == noteId) {
                 notes.remove(note)
+                for (comment in comments) {
+                    if (noteId == comment.parentNoteId) {
+                        deletedComments.add(comment)
+                        comments.remove(comment)
+                    }
+                }
                 return 1
             }
         }
@@ -51,7 +58,7 @@ object NotesService {
                 return 1
             }
         }
-        throw NoteNotFoundException("no comment with such ID $commentId")
+        throw CommentNotFoundException("no comment with such ID $commentId")
     }
 
     fun editNote(newNote: Note): Int {
@@ -65,46 +72,50 @@ object NotesService {
     }
 
     fun editComment(newComment: Comment): Int {
-        for ((index, comment) in comments.withIndex()){
+        for ((index, comment) in comments.withIndex()) {
             if (comment.cid == newComment.cid) {
                 comments[index] = newComment.copy()
                 return 1
             }
         }
-        throw NoteNotFoundException("no note with such ID $newComment.cid")
+        throw CommentNotFoundException("no note with such ID $newComment.cid")
     }
 
-    fun getNoteById(notes_ids: Int): MutableList<Note> {
+    fun getNotesById(vararg notes_ids: Int): MutableList<Note> {
         var notesToDisplay = mutableListOf<Note>()
         for (note in notes) {
-            if (note.nid == notes_ids) {
+            if (note.nid in notes_ids) {
                 notesToDisplay.add(note)
             }
         }
+        if (notesToDisplay.isEmpty()) {
+            throw NoteNotFoundException("no note with such ID $notes_ids")
+        }
         return notesToDisplay
-        throw NoteNotFoundException("no note with such ID $notes_ids")
     }
 
     fun getNoteComments(noteId: Int): MutableList<Comment> {
         var commentsToDisplay = mutableListOf<Comment>()
         for (note in notes) {
-            if (note.nid == noteId){
+            if (note.nid == noteId) {
                 commentsToDisplay.add(note.comment)
             }
         }
+        if (commentsToDisplay.isEmpty()) {
+            throw NoteNotFoundException("no note with such ID $noteId")
+        }
         return commentsToDisplay
-        throw NoteNotFoundException("no note with such ID $noteId")
     }
 
-    fun restoreComment (commentId: Int) : Int{
-        for ((index, comment) in deletedComments.withIndex()){
+    fun restoreComment(commentId: Int): Int {
+        for ((index, comment) in deletedComments.withIndex()) {
             if (comment.cid == commentId) {
                 comments.add(deletedComments[index])
                 deletedComments.removeAt(index)
                 return 1
             }
         }
-        throw NoteNotFoundException("no comment with such ID $commentId")
+        throw CommentNotFoundException("no comment with such ID $commentId")
     }
 
 }
